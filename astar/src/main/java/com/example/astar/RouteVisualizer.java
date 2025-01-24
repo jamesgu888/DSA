@@ -209,8 +209,11 @@ public class RouteVisualizer extends Application {
                 pane.getChildren().add(returnLine);
                 drawnLines.add(returnLine);
 
-                // Add a blue arrowhead for the return trip
-                addArrowhead(x2 - offsetX, y2 - offsetY, x1 - offsetX, y1 - offsetY, pane, true);
+                // Add arrowhead for return trips (blue)
+                if (selectedNodes.stream().anyMatch(circle ->
+                        circle.getCenterX() == locations[source][0] && circle.getCenterY() == locations[source][1])) {
+                    addArrowhead(x2 - offsetX, y2 - offsetY, x1 - offsetX, y1 - offsetY, pane, true);
+                }
             } else {
                 // Draw the outgoing trip (red), on the left side
                 Line outgoingLine = new Line(x1 - offsetX, y1 - offsetY, x2 - offsetX, y2 - offsetY);
@@ -220,35 +223,55 @@ public class RouteVisualizer extends Application {
                 pane.getChildren().add(outgoingLine);
                 drawnLines.add(outgoingLine);
 
-                // Add a red arrowhead for the outgoing trip
-                addArrowhead(x1 - offsetX, y1 - offsetY, x2 - offsetX, y2 - offsetY, pane, false);
+                // Add arrowhead for outgoing trips (red)
+                if (selectedNodes.stream().anyMatch(circle ->
+                        circle.getCenterX() == locations[destination][0] && circle.getCenterY() == locations[destination][1])) {
+                    addArrowhead(x1 - offsetX, y1 - offsetY, x2 - offsetX, y2 - offsetY, pane, false);
+                }
             }
 
             drawnPairs.add(pair);
         }
     }
 
-
     private void addArrowhead(double x1, double y1, double x2, double y2, Pane pane, boolean isReturn) {
-        double arrowLength = 10;
-        double arrowWidth = 5;
+        double arrowLength = 10; // Length of the arrowhead lines
+        double arrowWidth = 5;   // Width of the arrowhead
 
-        // Reverse direction for the return arrowhead (blue)
-        double angle = isReturn ? Math.atan2(y1 - y2, x1 - x2) : Math.atan2(y2 - y1, x2 - x1);
+        // Calculate the direction of the arrow
+        double angle = Math.atan2(y2 - y1, x2 - x1);
 
+        if (isReturn) {
+            // Reverse the direction for blue arrows (return)
+            angle = Math.atan2(y1 - y2, x1 - x2);
+
+            // Flip the arrowhead to the starting end of the blue line
+            double tempX = x1;
+            double tempY = y1;
+            x1 = x2;
+            y1 = y2;
+            x2 = tempX;
+            y2 = tempY;
+        }
+
+        // Calculate the points for the arrowhead
         double xArrow1 = x2 - arrowLength * Math.cos(angle - Math.PI / 6);
         double yArrow1 = y2 - arrowLength * Math.sin(angle - Math.PI / 6);
 
         double xArrow2 = x2 - arrowLength * Math.cos(angle + Math.PI / 6);
         double yArrow2 = y2 - arrowLength * Math.sin(angle + Math.PI / 6);
 
+        // Create the arrowhead lines
         Line arrowLine1 = new Line(x2, y2, xArrow1, yArrow1);
         Line arrowLine2 = new Line(x2, y2, xArrow2, yArrow2);
+
+        // Set the color and thickness of the arrowhead
         arrowLine1.setStroke(isReturn ? Color.BLUE : Color.RED);
         arrowLine2.setStroke(isReturn ? Color.BLUE : Color.RED);
         arrowLine1.setStrokeWidth(3);
         arrowLine2.setStrokeWidth(3);
 
+        // Add the arrowhead to the pane
         pane.getChildren().addAll(arrowLine1, arrowLine2);
         drawnLines.add(arrowLine1);
         drawnLines.add(arrowLine2);
