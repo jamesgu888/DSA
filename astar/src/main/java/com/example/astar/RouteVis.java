@@ -12,6 +12,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.QuadCurve;
 import javafx.scene.shape.CubicCurve;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
@@ -30,6 +32,9 @@ public class RouteVis extends Application {
     // Hard-coded positions for the houses with irregular spacing
     private double[][] locations;
     private Pane pane;
+
+    // List to keep track of drawn path lines and arrowheads
+    private final List<Line> drawnLines = new ArrayList<>();
 
     @Override
     public void start(Stage primaryStage) {
@@ -76,66 +81,191 @@ public class RouteVis extends Application {
         };
 
         // ******************************************************************
-        // Updated edge definitions:
-        // Each edge is now defined as {source, dest, weight, type}
-        // type: 0 = normal road, 1 = highway.
-        // We use the existing edges for connectivity (type 0) and add extra
-        // highway edges (with lower weight) for entire rows.
+        // Original edge definitions (without highways)
+        // Each edge is defined as {source, dest, weight}
         // ******************************************************************
         int[][] edges = {
-                // Horizontal edges (normal roads)
-                { 0, 1, 4, 0 }, { 1, 2, 2, 0 }, { 2, 3, 5, 0 }, { 3, 4, 1, 0 }, { 4, 5, 3, 0 }, { 5, 6, 4, 0 },
-                { 6, 7, 2, 0 },
-                { 8, 9, 3, 0 }, { 9, 10, 5, 0 }, { 10, 11, 1, 0 }, { 11, 12, 4, 0 }, { 12, 13, 3, 0 }, { 13, 14, 2, 0 },
-                { 14, 15, 5, 0 },
-                { 16, 17, 2, 0 }, { 17, 18, 4, 0 }, { 18, 19, 5, 0 }, { 19, 20, 1, 0 }, { 20, 21, 3, 0 },
-                { 21, 22, 5, 0 }, { 22, 23, 4, 0 },
-                { 24, 25, 2, 0 }, { 25, 26, 5, 0 }, { 26, 27, 2, 0 }, { 27, 28, 4, 0 }, { 28, 29, 1, 0 },
-                { 29, 30, 3, 0 }, { 30, 31, 5, 0 },
-                { 32, 33, 1, 0 }, { 33, 34, 3, 0 }, { 34, 35, 2, 0 }, { 35, 36, 5, 0 }, { 36, 37, 4, 0 },
-                { 37, 38, 1, 0 }, { 38, 39, 2, 0 },
+                // Horizontal edges
+                { 0, 1, 4 }, { 1, 2, 2 }, { 2, 3, 5 }, { 3, 4, 1 }, { 4, 5, 3 }, { 5, 6, 4 }, { 6, 7, 2 },
+                { 8, 9, 3 }, { 9, 10, 5 }, { 10, 11, 1 }, { 11, 12, 4 }, { 12, 13, 3 }, { 13, 14, 2 }, { 14, 15, 5 },
+                { 16, 17, 2 }, { 17, 18, 4 }, { 18, 19, 5 }, { 19, 20, 1 }, { 20, 21, 3 }, { 21, 22, 5 }, { 22, 23, 4 },
+                { 24, 25, 2 }, { 25, 26, 5 }, { 26, 27, 2 }, { 27, 28, 4 }, { 28, 29, 1 }, { 29, 30, 3 }, { 30, 31, 5 },
+                { 32, 33, 1 }, { 33, 34, 3 }, { 34, 35, 2 }, { 35, 36, 5 }, { 36, 37, 4 }, { 37, 38, 1 }, { 38, 39, 2 },
 
-                // Vertical edges (normal roads)
-                { 0, 8, 3, 0 }, { 1, 9, 5, 0 }, { 2, 10, 2, 0 }, { 3, 11, 4, 0 }, { 4, 12, 1, 0 }, { 5, 13, 3, 0 },
-                { 6, 14, 2, 0 }, { 7, 15, 5, 0 },
-                { 8, 16, 4, 0 }, { 9, 17, 1, 0 }, { 10, 18, 3, 0 }, { 11, 19, 5, 0 }, { 12, 20, 2, 0 },
-                { 13, 21, 4, 0 }, { 14, 22, 5, 0 }, { 15, 23, 1, 0 },
-                { 16, 24, 3, 0 }, { 17, 25, 2, 0 }, { 18, 26, 5, 0 }, { 19, 27, 1, 0 }, { 20, 28, 4, 0 },
-                { 21, 29, 2, 0 }, { 22, 30, 5, 0 }, { 23, 31, 3, 0 },
-                { 24, 32, 1, 0 }, { 25, 33, 4, 0 }, { 26, 34, 2, 0 }, { 27, 35, 5, 0 }, { 28, 36, 3, 0 },
-                { 29, 37, 1, 0 }, { 30, 38, 4, 0 }, { 31, 39, 2, 0 },
+                // Vertical edges
+                { 0, 8, 3 }, { 1, 9, 5 }, { 2, 10, 2 }, { 3, 11, 4 }, { 4, 12, 1 }, { 5, 13, 3 }, { 6, 14, 2 },
+                { 7, 15, 5 },
+                { 8, 16, 4 }, { 9, 17, 1 }, { 10, 18, 3 }, { 11, 19, 5 }, { 12, 20, 2 }, { 13, 21, 4 }, { 14, 22, 5 },
+                { 15, 23, 1 },
+                { 16, 24, 3 }, { 17, 25, 2 }, { 18, 26, 5 }, { 19, 27, 1 }, { 20, 28, 4 }, { 21, 29, 2 }, { 22, 30, 5 },
+                { 23, 31, 3 },
+                { 24, 32, 1 }, { 25, 33, 4 }, { 26, 34, 2 }, { 27, 35, 5 }, { 28, 36, 3 }, { 29, 37, 1 }, { 30, 38, 4 },
+                { 31, 39, 2 },
 
-                // Diagonal edges (normal roads)
-                { 0, 9, 3, 0 }, { 1, 10, 2, 0 }, { 2, 11, 4, 0 }, { 8, 17, 3, 0 }, { 9, 18, 5, 0 }, { 10, 19, 2, 0 },
-                { 16, 25, 3, 0 }, { 17, 26, 4, 0 }, { 18, 27, 2, 0 }, { 24, 33, 5, 0 }, { 25, 34, 1, 0 },
-                { 26, 35, 4, 0 },
-                { 27, 36, 3, 0 }, { 28, 37, 2, 0 }, { 29, 38, 5, 0 }, { 30, 39, 1, 0 },
-
-                // Extra highways (big highways) for each row; travel times are lower.
-                { 0, 7, 2, 1 }, // highway for row 0
-                { 8, 15, 2, 1 }, // highway for row 1
-                { 16, 23, 2, 1 }, // highway for row 2
-                { 24, 31, 2, 1 }, // highway for row 3
-                { 32, 39, 2, 1 } // highway for row 4
+                // Diagonal edges
+                { 0, 9, 3 }, { 1, 10, 2 }, { 2, 11, 4 }, { 8, 17, 3 }, { 9, 18, 5 }, { 10, 19, 2 },
+                { 16, 25, 3 }, { 17, 26, 4 }, { 18, 27, 2 }, { 24, 33, 5 }, { 25, 34, 1 }, { 26, 35, 4 },
+                { 27, 36, 3 }, { 28, 37, 2 }, { 29, 38, 5 }, { 30, 39, 1 }
         };
 
         // Build the graph from the edge list.
+        // Each neighbor is stored as {destination, weight}
         graph = new HashMap<>();
         for (int[] edge : edges) {
-            // Each edge is now stored as {destination, weight, type}
-            graph.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(new int[] { edge[1], edge[2], edge[3] });
-            graph.computeIfAbsent(edge[1], k -> new ArrayList<>()).add(new int[] { edge[0], edge[2], edge[3] });
+            graph.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(new int[] { edge[1], edge[2] });
+            graph.computeIfAbsent(edge[1], k -> new ArrayList<>()).add(new int[] { edge[0], edge[2] });
         }
 
         // Draw houses (nodes) at their fixed irregular positions
         houses.clear();
+
+        // Draw edges (roads) using a randomized connection style for each edge.
+        Random rand = new Random();
+        for (int[] edge : edges) {
+            int source = edge[0];
+            int dest = edge[1];
+            int weight = edge[2];
+
+            double x1 = locations[source][0];
+            double y1 = locations[source][1];
+            double x2 = locations[dest][0];
+            double y2 = locations[dest][1];
+
+            double connectionType = rand.nextDouble();
+            if (connectionType < 0.33) {
+                // Draw a straight road
+                Line road = new Line(x1, y1, x2, y2);
+                road.setStroke(Color.DARKGRAY);
+                road.setStrokeWidth(8);
+                pane.getChildren().add(road);
+
+                // Draw the yellow dashed center line
+                Line centerLine = new Line(x1, y1, x2, y2);
+                centerLine.setStroke(Color.YELLOW);
+                centerLine.setStrokeWidth(2);
+                centerLine.getStrokeDashArray().addAll(10d, 10d);
+                pane.getChildren().add(centerLine);
+
+                // Add the weight label
+                Text weightLabel = new Text((x1 + x2) / 2, (y1 + y2) / 2, String.valueOf(weight));
+                weightLabel.setFill(Color.DARKRED);
+                pane.getChildren().add(weightLabel);
+            } else if (connectionType < 0.66) {
+                // Draw a quadratic curve road
+                QuadCurve quadCurve = new QuadCurve();
+                quadCurve.setStartX(x1);
+                quadCurve.setStartY(y1);
+                quadCurve.setEndX(x2);
+                quadCurve.setEndY(y2);
+                double midX = (x1 + x2) / 2;
+                double midY = (y1 + y2) / 2;
+                double dx = x2 - x1;
+                double dy = y2 - y1;
+                double len = Math.sqrt(dx * dx + dy * dy);
+                if (len == 0)
+                    len = 1;
+                // Compute a perpendicular (normalized) vector:
+                double px = -dy / len;
+                double py = dx / len;
+                double offset = rand.nextDouble() * 100 - 50;
+                double ctrlX = midX + px * offset;
+                double ctrlY = midY + py * offset;
+                quadCurve.setControlX(ctrlX);
+                quadCurve.setControlY(ctrlY);
+                quadCurve.setStroke(Color.DARKGRAY);
+                quadCurve.setStrokeWidth(8);
+                quadCurve.setFill(null);
+                pane.getChildren().add(quadCurve);
+
+                // Draw the yellow dashed center line along the quadratic curve
+                QuadCurve centerQuad = new QuadCurve();
+                centerQuad.setStartX(x1);
+                centerQuad.setStartY(y1);
+                centerQuad.setEndX(x2);
+                centerQuad.setEndY(y2);
+                centerQuad.setControlX(ctrlX);
+                centerQuad.setControlY(ctrlY);
+                centerQuad.setStroke(Color.YELLOW);
+                centerQuad.setStrokeWidth(2);
+                centerQuad.getStrokeDashArray().addAll(10d, 10d);
+                centerQuad.setFill(null);
+                pane.getChildren().add(centerQuad);
+
+                // Compute label position using the quadratic Bézier formula at t = 0.5:
+                double labelX = 0.25 * x1 + 0.5 * ctrlX + 0.25 * x2;
+                double labelY = 0.25 * y1 + 0.5 * ctrlY + 0.25 * y2;
+                Text weightLabel = new Text(labelX, labelY, String.valueOf(weight));
+                weightLabel.setFill(Color.DARKRED);
+                pane.getChildren().add(weightLabel);
+            } else {
+                // Draw a cubic curve road
+                CubicCurve cubicCurve = new CubicCurve();
+                cubicCurve.setStartX(x1);
+                cubicCurve.setStartY(y1);
+                cubicCurve.setEndX(x2);
+                cubicCurve.setEndY(y2);
+                double dx = x2 - x1;
+                double dy = y2 - y1;
+                double len = Math.sqrt(dx * dx + dy * dy);
+                if (len == 0)
+                    len = 1;
+                double px = -dy / len;
+                double py = dx / len;
+                // First control point (with random offset)
+                double cp1X = x1 + dx / 3;
+                double cp1Y = y1 + dy / 3;
+                double offset1 = rand.nextDouble() * 100 - 50;
+                cp1X += px * offset1;
+                cp1Y += py * offset1;
+                // Second control point (with random offset)
+                double cp2X = x1 + 2 * dx / 3;
+                double cp2Y = y1 + 2 * dy / 3;
+                double offset2 = rand.nextDouble() * 100 - 50;
+                cp2X += px * offset2;
+                cp2Y += py * offset2;
+                cubicCurve.setControlX1(cp1X);
+                cubicCurve.setControlY1(cp1Y);
+                cubicCurve.setControlX2(cp2X);
+                cubicCurve.setControlY2(cp2Y);
+                cubicCurve.setStroke(Color.DARKGRAY);
+                cubicCurve.setStrokeWidth(8);
+                cubicCurve.setFill(null);
+                pane.getChildren().add(cubicCurve);
+
+                // Draw the yellow dashed center line along the cubic curve
+                CubicCurve centerCubic = new CubicCurve();
+                centerCubic.setStartX(x1);
+                centerCubic.setStartY(y1);
+                centerCubic.setEndX(x2);
+                centerCubic.setEndY(y2);
+                centerCubic.setControlX1(cp1X);
+                centerCubic.setControlY1(cp1Y);
+                centerCubic.setControlX2(cp2X);
+                centerCubic.setControlY2(cp2Y);
+                centerCubic.setStroke(Color.YELLOW);
+                centerCubic.setStrokeWidth(2);
+                centerCubic.getStrokeDashArray().addAll(10d, 10d);
+                centerCubic.setFill(null);
+                pane.getChildren().add(centerCubic);
+
+                // Compute label position using the cubic Bézier formula at t = 0.5:
+                double labelX = 0.125 * x1 + 0.375 * cp1X + 0.375 * cp2X + 0.125 * x2;
+                double labelY = 0.125 * y1 + 0.375 * cp1Y + 0.375 * cp2Y + 0.125 * y2;
+                Text weightLabel = new Text(labelX, labelY, String.valueOf(weight));
+                weightLabel.setFill(Color.DARKRED);
+                pane.getChildren().add(weightLabel);
+            }
+        }
+
         for (int i = 0; i < locations.length; i++) {
             double x = locations[i][0];
             double y = locations[i][1];
 
             // Create a House at the given location (using 12 as the "size" parameter)
             House house = new House(x, y, 12, Color.LIGHTBLUE);
-            Text label = new Text(x - 25, y - 15, "Node " + i);
+            Text label = new Text(x - 25, y - 25, "House " + i);
+            label.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+            label.toFront(); // Ensure the label stays on top
 
             final int nodeIndex = i;
             house.setOnMouseClicked(e -> handleNodeClick(house, nodeIndex));
@@ -144,173 +274,11 @@ public class RouteVis extends Application {
             pane.getChildren().addAll(house, label);
         }
 
-        // Draw edges (roads) with two different styles based on type.
-        // For normal roads, we use the existing random connection style.
-        // For highways (type==1), we always draw a straight, extra-thick road.
-        Random rand = new Random();
-        for (int[] edge : edges) {
-            int source = edge[0];
-            int dest = edge[1];
-            int weight = edge[2];
-            // Retrieve the road type: 0 = normal, 1 = highway.
-            int roadType = edge[3];
-
-            double x1 = locations[source][0];
-            double y1 = locations[source][1];
-            double x2 = locations[dest][0];
-            double y2 = locations[dest][1];
-
-            if (roadType == 1) {
-                // --- Highway: always drawn as a straight, extra-thick road ---
-                // Draw the thick highway base (using dark blue)
-                Line highway = new Line(x1, y1, x2, y2);
-                highway.setStroke(Color.DARKBLUE);
-                highway.setStrokeWidth(12);
-                pane.getChildren().add(highway);
-
-                // Draw the thicker yellow dashed center marking
-                Line centerLine = new Line(x1, y1, x2, y2);
-                centerLine.setStroke(Color.YELLOW);
-                centerLine.setStrokeWidth(4);
-                centerLine.getStrokeDashArray().addAll(15d, 15d);
-                pane.getChildren().add(centerLine);
-
-                // Add the weight label
-                Text weightLabel = new Text((x1 + x2) / 2, (y1 + y2) / 2, String.valueOf(weight));
-                weightLabel.setFill(Color.DARKRED);
-                pane.getChildren().add(weightLabel);
-            } else {
-                // --- Normal roads: drawn with irregular (randomized) connection types ---
-                double connectionType = rand.nextDouble();
-                if (connectionType < 0.33) {
-                    // Draw a straight road (normal)
-                    Line road = new Line(x1, y1, x2, y2);
-                    road.setStroke(Color.DARKGRAY);
-                    road.setStrokeWidth(8);
-                    pane.getChildren().add(road);
-
-                    // Draw the yellow dashed center line
-                    Line centerLine = new Line(x1, y1, x2, y2);
-                    centerLine.setStroke(Color.YELLOW);
-                    centerLine.setStrokeWidth(2);
-                    centerLine.getStrokeDashArray().addAll(10d, 10d);
-                    pane.getChildren().add(centerLine);
-
-                    // Add the weight label
-                    Text weightLabel = new Text((x1 + x2) / 2, (y1 + y2) / 2, String.valueOf(weight));
-                    weightLabel.setFill(Color.DARKRED);
-                    pane.getChildren().add(weightLabel);
-                } else if (connectionType < 0.66) {
-                    // Draw a quadratic curve road (normal)
-                    QuadCurve quadCurve = new QuadCurve();
-                    quadCurve.setStartX(x1);
-                    quadCurve.setStartY(y1);
-                    quadCurve.setEndX(x2);
-                    quadCurve.setEndY(y2);
-                    double midX = (x1 + x2) / 2;
-                    double midY = (y1 + y2) / 2;
-                    double dx = x2 - x1;
-                    double dy = y2 - y1;
-                    double len = Math.sqrt(dx * dx + dy * dy);
-                    if (len == 0)
-                        len = 1;
-                    // Compute a perpendicular (normalized) vector:
-                    double px = -dy / len;
-                    double py = dx / len;
-                    double offset = rand.nextDouble() * 100 - 50;
-                    double ctrlX = midX + px * offset;
-                    double ctrlY = midY + py * offset;
-                    quadCurve.setControlX(ctrlX);
-                    quadCurve.setControlY(ctrlY);
-                    quadCurve.setStroke(Color.DARKGRAY);
-                    quadCurve.setStrokeWidth(8);
-                    quadCurve.setFill(null);
-                    pane.getChildren().add(quadCurve);
-
-                    // Draw the yellow dashed center line along the same quadratic curve
-                    QuadCurve centerQuad = new QuadCurve();
-                    centerQuad.setStartX(x1);
-                    centerQuad.setStartY(y1);
-                    centerQuad.setEndX(x2);
-                    centerQuad.setEndY(y2);
-                    centerQuad.setControlX(ctrlX);
-                    centerQuad.setControlY(ctrlY);
-                    centerQuad.setStroke(Color.YELLOW);
-                    centerQuad.setStrokeWidth(2);
-                    centerQuad.getStrokeDashArray().addAll(10d, 10d);
-                    centerQuad.setFill(null);
-                    pane.getChildren().add(centerQuad);
-
-                    // Compute label position using the quadratic Bézier formula at t = 0.5:
-                    double labelX = 0.25 * x1 + 0.5 * ctrlX + 0.25 * x2;
-                    double labelY = 0.25 * y1 + 0.5 * ctrlY + 0.25 * y2;
-                    Text weightLabel = new Text(labelX, labelY, String.valueOf(weight));
-                    weightLabel.setFill(Color.DARKRED);
-                    pane.getChildren().add(weightLabel);
-                } else {
-                    // Draw a cubic curve road (normal)
-                    CubicCurve cubicCurve = new CubicCurve();
-                    cubicCurve.setStartX(x1);
-                    cubicCurve.setStartY(y1);
-                    cubicCurve.setEndX(x2);
-                    cubicCurve.setEndY(y2);
-                    double dx = x2 - x1;
-                    double dy = y2 - y1;
-                    double len = Math.sqrt(dx * dx + dy * dy);
-                    if (len == 0)
-                        len = 1;
-                    double px = -dy / len;
-                    double py = dx / len;
-                    // First control point (with random offset)
-                    double cp1X = x1 + dx / 3;
-                    double cp1Y = y1 + dy / 3;
-                    double offset1 = rand.nextDouble() * 100 - 50;
-                    cp1X += px * offset1;
-                    cp1Y += py * offset1;
-                    // Second control point (with random offset)
-                    double cp2X = x1 + 2 * dx / 3;
-                    double cp2Y = y1 + 2 * dy / 3;
-                    double offset2 = rand.nextDouble() * 100 - 50;
-                    cp2X += px * offset2;
-                    cp2Y += py * offset2;
-                    cubicCurve.setControlX1(cp1X);
-                    cubicCurve.setControlY1(cp1Y);
-                    cubicCurve.setControlX2(cp2X);
-                    cubicCurve.setControlY2(cp2Y);
-                    cubicCurve.setStroke(Color.DARKGRAY);
-                    cubicCurve.setStrokeWidth(8);
-                    cubicCurve.setFill(null);
-                    pane.getChildren().add(cubicCurve);
-
-                    // Draw the yellow dashed center line along the cubic curve
-                    CubicCurve centerCubic = new CubicCurve();
-                    centerCubic.setStartX(x1);
-                    centerCubic.setStartY(y1);
-                    centerCubic.setEndX(x2);
-                    centerCubic.setEndY(y2);
-                    centerCubic.setControlX1(cp1X);
-                    centerCubic.setControlY1(cp1Y);
-                    centerCubic.setControlX2(cp2X);
-                    centerCubic.setControlY2(cp2Y);
-                    centerCubic.setStroke(Color.YELLOW);
-                    centerCubic.setStrokeWidth(2);
-                    centerCubic.getStrokeDashArray().addAll(10d, 10d);
-                    centerCubic.setFill(null);
-                    pane.getChildren().add(centerCubic);
-
-                    // Compute label position using the cubic Bézier formula at t = 0.5:
-                    double labelX = 0.125 * x1 + 0.375 * cp1X + 0.375 * cp2X + 0.125 * x2;
-                    double labelY = 0.125 * y1 + 0.375 * cp1Y + 0.375 * cp2Y + 0.125 * y2;
-                    Text weightLabel = new Text(labelX, labelY, String.valueOf(weight));
-                    weightLabel.setFill(Color.DARKRED);
-                    pane.getChildren().add(weightLabel);
-                }
-            }
-        }
-
+        // Ensure houses are in front of the roads
         for (House house : houses) {
             house.toFront();
         }
+
         // Reset button remains as before
         Button resetButton = new Button("Reset");
         resetButton.setLayoutX(500);
@@ -529,9 +497,6 @@ public class RouteVis extends Application {
         Collections.reverse(path);
         return path.isEmpty() || path.get(0) != start ? Collections.emptyList() : path;
     }
-
-    // List to keep track of drawn path lines and arrowheads
-    private final List<Line> drawnLines = new ArrayList<>();
 
     public static void main(String[] args) {
         launch(args);
